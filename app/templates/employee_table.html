@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container mt-5">
+    <input type="text" id="searchInput" class="form-control" placeholder="Enter a search query">
+    <table id="employee-table" class="table table-striped">
+        <thead>
+            <tr>
+                <th><a href="#" data-sort="name">Name</a></th>
+                <th><a href="#" data-sort="position">Position</a></th>
+                <th><a href="#" data-sort="date_of_employment">Date of employment</a></th>
+                <th><a href="#" data-sort="email">Email</a></th>
+                <th><a href="#" data-sort="boss_level">Boss</a></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for worker in workers %}
+            <tr>
+                <td>{{ worker.name }}</td>
+                <td>{{ worker.position }}</td>
+                <td>{{ worker.date_of_employment }}</td>
+                <td>{{ worker.email }}</td>
+                <td>{{ worker.boss_level }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    $(document).ready(function () {
+        // Loading the table on the first page load
+        loadTable();
+
+        // Function for loading and updating the table
+        function loadTable(sortField) {
+            $.ajax({
+                url: '{% url "employee_table_data" %}',
+                data: {'sort': sortField},
+                dataType: 'json',
+                success: function (data) {
+                    updateTable(data);
+                }
+            });
+        }
+
+        // Function for updating the table contents
+        function updateTable(data) {
+            var table = $('#employee-table');
+            var tbody = table.find('tbody');
+
+            // Clearing existing rows
+            tbody.empty();
+
+            // Adding a table body
+            $.each(data.workers, function (index, worker) {
+                var boss_name = worker.boss_level ? worker.boss_level : ' ';
+                var row = '<tr><td>' + worker.name + '</td><td>' + worker.position + '</td><td>' + worker.date_of_employment + '</td><td>' + worker.email + '</td><td>' + boss_name + '</td></tr>';
+                tbody.append(row);
+            });
+        }
+
+        // Processing of click events on table headers
+        $(document).on('click', '#employee-table th a', function (e) {
+            e.preventDefault();
+            var sortField = $(this).data('sort');
+            loadTable(sortField);
+        });
+    });
+
+    $('#searchInput').on('input', function () {
+    var query = $(this).val();
+
+    $.ajax({
+        url: '{% url "employee_table_data" %}',
+        data: {
+            'query': query
+        },
+        dataType: 'json',
+        success: function (data) {
+            var table = $('#employee-table');
+            var tbody = table.find('tbody');
+
+            tbody.empty();
+            $.each(data.workers, function (index, worker) {
+                var boss_name = worker.boss_level ? worker.boss_level : ' ';
+                var row = '<tr><td>' + worker.name + '</td><td>' + worker.position + '</td><td>' + worker.date_of_employment + '</td><td>' + worker.email + '</td><td>' + boss_name + '</td></tr>';
+                tbody.append(row);
+            });
+        }
+    });
+});
+</script>
+
+{% endblock content %}
