@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="container mt-5">
+    <h2 class="text-center mb-4">Login</h2>
+    <form method="post" class="needs-validation" novalidate>
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="id_username" class="form-label">Username</label>
+        <input type="text" name="username" id="id_username" class="form-control" required>
+        <div class="invalid-feedback">Please enter your username.</div>
+      </div>
+      <div class="mb-3">
+        <label for="id_password" class="form-label">Password</label>
+        <input type="password" name="password" id="id_password" class="form-control" required>
+        <div class="invalid-feedback">Please enter your password.</div>
+      </div>
+      <div class="form-check mb-3">
+        <input type="checkbox" name="remember_me" id="id_remember_me" class="form-check-input">
+        <label for="id_remember_me" class="form-check-label">Remember me</label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block mt-4">Log in</button>
+    </form>
+  </div>
+{% endblock %}
