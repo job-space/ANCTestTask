@@ -1,6 +1,6 @@
 from django.http import JsonResponse,HttpResponse
-from django.db.models import OuterRef, Subquery, Q
-from django.shortcuts import render, get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
 from django.contrib.auth.forms import AuthenticationForm
@@ -8,11 +8,14 @@ from django.contrib.auth import login
 from django.apps import apps
 from django.views.decorators.http import require_POST, require_http_methods
 from django.core.serializers import serialize
-import json
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
 
+import json
 from .models import WorkerLevel1, WorkerLevel2, WorkerLevel3, WorkerLevel4, WorkerLevel5, WorkerLevel6, WorkerLevel7
 
 
+@login_required
 @require_http_methods(["GET", "POST"])
 def get_bosses_based_on_level(request):
     selected_level_id = request.POST.get('selectedLevelId')
@@ -44,6 +47,7 @@ def get_boss_levels(request):
     return JsonResponse({'bossLevels': boss_levels})
 
 
+@login_required
 def add_employee(request):
     if request.method == 'POST':
         name = request.POST.get('name')
@@ -81,6 +85,7 @@ def add_employee(request):
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 
+@login_required
 @require_POST
 def delete_employee(request):
     employee_id = request.POST.get('employee_id')
@@ -138,7 +143,6 @@ def delete_employee(request):
             boss_worker.position = worker.position
             boss_worker.date_of_employment = worker.date_of_employment
             boss_worker.email = worker.email
-            boss_worker.table_name = worker.table_name
             boss_worker.save()
     finally:
         worker.delete()
@@ -146,6 +150,7 @@ def delete_employee(request):
     return HttpResponse('Success')
 
 
+@login_required
 @require_POST
 def save_edited_employee(request):
     employee_id = request.POST.get('employee_id')
@@ -181,11 +186,11 @@ def get_employee_data(request):
     worker_level = request.POST.get('workerLevel')
 
     model = apps.get_model(app_label='app', model_name=worker_level)
-
     employee = get_object_or_404(model, id=employee_id)
     employee_dict = model.objects.filter(id=employee_id).values().first()
 
     try:
+
         boss = employee.boss_level.name
     except:
         boss = False
@@ -219,6 +224,7 @@ class CustomLoginView(LoginView):
         return super().form_valid(form)
 
 
+
 def hierarchy_tree(request):
     worker = WorkerLevel1.objects.get()
     context = {
@@ -232,44 +238,66 @@ def employee_table_data(request):
     sort_param = request.GET.get('sort', 'name')
     search_param = request.GET.get('query', '')
 
-    # Obtaining data on employees and sorting by the specified field
-    workers_level1 = WorkerLevel1.objects.values('name', 'position', 'date_of_employment', 'email')
-    workers_level2 = WorkerLevel2.objects.values('name', 'position', 'date_of_employment', 'email', 'boss_level_1__name')
-    workers_level3 = WorkerLevel3.objects.values('name', 'position', 'date_of_employment', 'email', 'boss_level_2__name')
-    workers_level4 = WorkerLevel4.objects.values('name', 'position', 'date_of_employment', 'email', 'boss_level_3__name')
-    workers_level5 = WorkerLevel5.objects.values('name', 'position', 'date_of_employment', 'email', 'boss_level_4__name')
-    workers_level6 = WorkerLevel6.objects.values('name', 'position', 'date_of_employment', 'email', 'boss_level_5__name')
-    workers_level7 = WorkerLevel7.objects.values('name', 'position', 'date_of_employment', 'email', 'boss_level_6__name')
+    # Retrieve employee data and sort by a specified field
+    workers_level1 = WorkerLevel1.objects.values('id', 'name', 'position', 'date_of_employment', 'email', 'table_name',)
+    workers_level2 = WorkerLevel2.objects.values('id', 'name', 'position', 'date_of_employment', 'email', 'table_name', 'boss_level__name')
+    workers_level3 = WorkerLevel3.objects.values('id', 'name', 'position', 'date_of_employment', 'email', 'table_name', 'boss_level__name')
+    workers_level4 = WorkerLevel4.objects.values('id', 'name', 'position', 'date_of_employment', 'email', 'table_name', 'boss_level__name')
+    workers_level5 = WorkerLevel5.objects.values('id', 'name', 'position', 'date_of_employment', 'email', 'table_name', 'boss_level__name')
+    workers_level6 = WorkerLevel6.objects.values('id', 'name', 'position', 'date_of_employment', 'email', 'table_name', 'boss_level__name')
+    workers_level7 = WorkerLevel7.objects.values('id', 'name', 'position', 'date_of_employment', 'email', 'table_name', 'boss_level__name')
 
-    # create an additional instance for workers_level1 to use union
-    boss_level = WorkerLevel7.objects.filter(boss_level_6=OuterRef('pk')).values('name')[:1]
-    workers_level1 = workers_level1.annotate(boss_level=Subquery(boss_level))
+    workers_level1_list = list(workers_level1)
+    workers_level2_list = list(workers_level2)
+    workers_level3_list = list(workers_level3)
+    workers_level4_list = list(workers_level4)
+    workers_level5_list = list(workers_level5)
+    workers_level6_list = list(workers_level6)
+    workers_level7_list = list(workers_level7)
 
+    # Combine lists into one common list
+    all_workers = (
+            workers_level1_list +
+            workers_level2_list +
+            workers_level3_list +
+            workers_level4_list +
+            workers_level5_list +
+            workers_level6_list +
+            workers_level7_list
+    )
+
+    # Manually sort the list by the specified parameter
+    all_workers.sort(key=lambda x: x.get(sort_param, ''))
+
+    for worker in all_workers:
+        if 'boss_level__name' in worker:
+            worker['boss_level'] = worker.pop('boss_level__name')
+
+    # Filter if the search parameter is passed
     if search_param:
-        workers_level2 = workers_level2.filter(
-            Q(name__icontains=search_param) |
-            Q(position__icontains=search_param) |
-            Q(email__icontains=search_param) |
-            Q(date_of_employment__icontains=search_param) |
-            Q(boss_level_1__name__icontains=search_param)
+        all_workers = filter(
+            lambda worker: (
+                    search_param.lower() in worker.get('name', '').lower() or
+                    search_param.lower() in worker.get('position', '').lower() or
+                    search_param.lower() in worker.get('email', '').lower() or
+                    search_param.lower() in str(worker.get('date_of_employment', '')).lower() or
+                    (worker.get('boss_level') and search_param.lower() in worker['boss_level'].lower())
+            ),
+            all_workers
         )
 
-    workers = workers_level1.union(workers_level2, workers_level3, workers_level4, workers_level5, workers_level6, workers_level7).order_by(sort_param)
-
-    # delete the additional instance
-    for worker in workers:
-        if worker == workers_level1[0]:
-            worker.pop('boss_level', None)
-
-        # Create a response in JSON format
     data = {
-        'workers': list(workers),
+        'workers': list(all_workers),
         'current_sort': sort_param,
     }
 
-    # Returning a response in JSON format
     return JsonResponse(data)
 
 
 def employee_table(request):
     return render(request, 'employee_table.html')
+
+
+def logout_user(request):
+    logout(request)
+    return redirect('login')
