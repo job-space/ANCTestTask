@@ -3,6 +3,7 @@
 {% block content %}
 
 <div class="container mt-5">
+     <button class="btn btn-success mt-3" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">Add a new employee</button>
     <input type="text" id="searchInput" class="form-control" placeholder="Enter a search query">
     <table id="employee-table" class="table table-striped">
         <thead>
@@ -12,6 +13,7 @@
                 <th><a href="#" data-sort="date_of_employment">Date of employment</a></th>
                 <th><a href="#" data-sort="email">Email</a></th>
                 <th><a href="#" data-sort="boss_level">Boss</a></th>
+                <th>Дія</th>
             </tr>
         </thead>
         <tbody>
@@ -22,24 +24,112 @@
                 <td>{{ worker.date_of_employment }}</td>
                 <td>{{ worker.email }}</td>
                 <td>{{ worker.boss_level }}</td>
+                <td>
+                    <button class="btn btn-primary" data-level-worker="{{ worker.table_name }}" data-worker-id="{{ worker.id }}" onclick="editEmployee(event)">Edit</button>
+                    <button class="btn btn-danger" data-level-worker="{{ worker.table_name }}" data-worker-id="{{ worker.id }}" onclick="deleteEmployee(event)">Delete</button>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <div class="modal fade" id="editEmployeeModal" tabindex="-1" aria-labelledby="editEmployeeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editEmployeeModalLabel">Edit an employee</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editEmployeeForm">
+                        <div class="mb-3">
+                            <label for="editName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="editName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPosition" class="form-label">Position</label>
+                            <input type="text" class="form-control" id="editPosition" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editDate" class="form-label">Date of employment</label>
+                            <input type="text" class="form-control" id="editDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editEmail" required>
+                        </div>
+                        <div class="mb-3" id="bossLevelContainer">
+                            <label for="editBossLevel" class="form-label">Boss</label>
+                            <select class="form-select" id="editBossLevel" required>
+                                {% for boss in data.bosses %}
+                                    {% if boss.id == worker.boss_level %}
+                                        <option value="{{ boss.id }}" selected>{{ boss.name }}</option>
+                                    {% else %}
+                                        <option value="{{ boss.id }}">{{ boss.name }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="saveEditedEmployee()">Save changes</button>
+                        <button type="button" class="btn btn-danger" onclick="deleteEmployee()">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addEmployeeModal" tabindex="-1" aria-labelledby="addEmployeeModalLabel" aria-hidden="true">
+        {% csrf_token %}
+    <div class="modal-dialog">
+        <div class="modal-content">
+    <div class="modal-header">
+        <h5 class="modal-title" id="addEmployeeModalLabel">Add a new employee</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addEmployeeForm">
+                    <div class="mb-3">
+                        <label for="addName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="addName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addPosition" class="form-label">Position</label>
+                        <input type="text" class="form-control" id="addPosition" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addDate" class="form-label">Date of employment</label>
+                        <input type="text" class="form-control" id="addDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="addEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addBossLevel" class="form-label">Access level</label>
+                        <select class="form-select" id="addBossLevel" required></select>
+                    </div>
+                    <div class="mb-3">
+                       <label for="addBoss" class="form-label">Boss</label>
+                       <select class="form-select" id="addBoss" ></select>
+                   </div>
+                    <button type="button" class="btn btn-success" onclick="addEmployee()">Add an employee</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
     $(document).ready(function () {
-        // Loading the table on the first page load
-        loadTable();
-
-        // Function for loading and updating the table
         function loadTable(sortField) {
             $.ajax({
                 url: '{% url "employee_table_data" %}',
-                data: {'sort': sortField},
+                data: { 'sort': sortField },
                 dataType: 'json',
                 success: function (data) {
                     updateTable(data);
@@ -47,52 +137,270 @@
             });
         }
 
-        // Function for updating the table contents
         function updateTable(data) {
             var table = $('#employee-table');
             var tbody = table.find('tbody');
-
-            // Clearing existing rows
             tbody.empty();
 
-            // Adding a table body
             $.each(data.workers, function (index, worker) {
                 var boss_name = worker.boss_level ? worker.boss_level : ' ';
-                var row = '<tr><td>' + worker.name + '</td><td>' + worker.position + '</td><td>' + worker.date_of_employment + '</td><td>' + worker.email + '</td><td>' + boss_name + '</td></tr>';
+                var row = `<tr>
+                              <td>${worker.name}</td>
+                              <td>${worker.position}</td>
+                              <td>${worker.date_of_employment}</td>
+                              <td>${worker.email}</td>
+                              <td>${boss_name}</td>
+                              <td>
+                                  <button class="btn btn-primary" data-level-worker="${worker.table_name}" data-worker-id="${worker.id}" onclick="editEmployee(event)">Edit</button>
+                                  <button class="btn btn-danger" data-level-worker="${worker.table_name}" data-worker-id="${worker.id}" onclick="deleteEmployee(event)">Delete</button>
+                              </td>
+                           </tr>`;
                 tbody.append(row);
             });
         }
 
-        // Processing of click events on table headers
         $(document).on('click', '#employee-table th a', function (e) {
             e.preventDefault();
             var sortField = $(this).data('sort');
             loadTable(sortField);
         });
-    });
 
-    $('#searchInput').on('input', function () {
-    var query = $(this).val();
+
+window.editEmployee = function (event) {
+    var button = $(event.currentTarget);
+    var workerId = button.attr('data-worker-id');
+    var workerLevel = button.attr('data-level-worker');
 
     $.ajax({
-        url: '{% url "employee_table_data" %}',
-        data: {
-            'query': query
-        },
+        url: '{% url "get_employee_data" %}',
+        type: 'POST',
+        data: { 'employee_id': workerId, 'workerLevel': workerLevel, 'csrfmiddlewaretoken': '{{ csrf_token }}' },
         dataType: 'json',
         success: function (data) {
-            var table = $('#employee-table');
-            var tbody = table.find('tbody');
+            $('#editName').val(data.name);
+            $('#editPosition').val(data.position);
+            $('#editDate').val(data.date_of_employment);
+            $('#editEmail').val(data.email);
 
-            tbody.empty();
-            $.each(data.workers, function (index, worker) {
-                var boss_name = worker.boss_level ? worker.boss_level : ' ';
-                var row = '<tr><td>' + worker.name + '</td><td>' + worker.position + '</td><td>' + worker.date_of_employment + '</td><td>' + worker.email + '</td><td>' + boss_name + '</td></tr>';
-                tbody.append(row);
-            });
+            $('#bossLevelContainer').toggle(data.boss_level !== false);
+
+            var bossLevelSelect = $('#editBossLevel');
+            bossLevelSelect.empty();
+
+            if (data.bosses.length > 0) {
+                $.each(data.bosses, function (index, boss) {
+                    var option = `<option value="${boss.id}" ${boss.id === data.boss_level ? 'selected' : ''}>${boss.name}</option>`;
+                    bossLevelSelect.append(option);
+                });
+            }
+
+            $('#editEmployeeModal').data('employee-id', workerId);
+            $('#editEmployeeModal').data('level-worker', workerLevel);
+            $('#editEmployeeModal').modal('show');
         }
     });
-});
+};
+
+        window.saveEditedEmployee = function () {
+            var name = $('#editName').val();
+            var position = $('#editPosition').val();
+            var date = $('#editDate').val();
+            var email = $('#editEmail').val();
+            var bossLevel = $('#editBossLevel').val();
+            var employeeId = $('#editEmployeeModal').data('employee-id');
+            var workerLevel = $('#editEmployeeModal').data('level-worker');
+
+            $.ajax({
+                url: '{% url "save_edited_employee" %}',
+                type: 'POST',
+                data: {
+                    'employee_id': employeeId,
+                    'name': name,
+                    'position': position,
+                    'date': date,
+                    'email': email,
+                    'bossLevel': bossLevel,
+                    'table_name': workerLevel,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function (response) {
+                    alert('Changes saved!');
+                    $('#editEmployeeModal').modal('hide');
+                    loadTable();
+                },
+                error: function (error) {
+                    alert('An error occurred while saving changes.');
+                }
+            });
+        };
+
+        window.deleteEmployee = function (event) {
+            var confirmDelete = confirm("Are you sure you want to delete this employee?");
+
+            if (confirmDelete) {
+                var button = $(event.currentTarget);
+                var employeeId = button.attr('data-worker-id');
+                var workerLevel = button.attr('data-level-worker');
+
+                $.ajax({
+                    url: '{% url "delete_employee" %}',
+                    type: 'POST',
+                    data: {
+                        'employee_id': employeeId,
+                        'table_name': workerLevel,
+                        'csrfmiddlewaretoken': '{{ csrf_token }}'
+                    },
+                    success: function (response) {
+                        alert('Employee deleted!');
+                        $('#editEmployeeModal').modal('hide');
+                        loadTable();
+                    },
+                    error: function (error) {
+                        alert('An error occurred when deleting an employee.');
+                    }
+                });
+            }
+        };
+
+        $('#searchInput').on('input', function () {
+            var query = $(this).val();
+
+            $.ajax({
+                url: '{% url "employee_table_data" %}',
+                data: { 'query': query },
+                dataType: 'json',
+                success: function (data) {
+                    updateTable(data);
+                }
+            });
+        });
+
+        // Function to get a list of work levels from the backend
+        function loadBossLevels() {
+            $.ajax({
+                url: '{% url "get_boss_levels" %}',
+                dataType: 'json',
+                success: function (data) {
+                    updateBossLevels(data);
+                }
+            });
+        }
+
+        function updateBossLevels(data) {
+            var addBossLevelSelect = $('#addBossLevel');
+            addBossLevelSelect.empty();
+
+            addBossLevelSelect.append('<option value="">Select the level of work</option>');
+
+            $.each(data.bossLevels, function (index, bossLevel) {
+                addBossLevelSelect.append(`<option value="${bossLevel.id}">${bossLevel.name}</option>`);
+            });
+        }
+
+        // Function to get a list of managers based on the selected work level
+        function loadBossesBasedOnLevel(selectedLevelId) {
+            $.ajax({
+                url: '{% url "get_bosses_based_on_level" %}',
+                type: 'POST',
+                data: { 'selectedLevelId': selectedLevelId, 'csrfmiddlewaretoken': '{{ csrf_token }}' },
+                dataType: 'json',
+                success: function (data) {
+                    updateBosses(data);
+                },
+                error: function (xhr, status, error) {
+                    console.error('AJAX request error:', xhr, status, error);
+                }
+            });
+        }
+
+
+        // Function for updating the selection of executives
+        function updateBosses(data) {
+            var addBossSelect = $('#addBoss');
+            addBossSelect.empty();
+
+            if (data.bosses.length === 0) {
+                addBossSelect.append('<option value="" disabled>This manager is the highest in the hierarchy</option>');
+            } else {
+                $.each(data.bosses, function (index, boss) {
+                    var bossName = boss.fields.name;
+                    addBossSelect.append(`<option value="${boss.pk}">${bossName}</option>`);
+                });
+            }
+        }
+
+
+        // Define an event when the modal window for adding a new employee is displayed
+        $('#addEmployeeModal').on('show.bs.modal', function (e) {
+            loadBossLevels();
+            loadBossesBasedOnLevel("");
+        });
+
+        $('#addBossLevel').on('change', function () {
+            var selectedLevelId = $(this).val();
+
+            if (selectedLevelId) {
+                loadBossesBasedOnLevel(selectedLevelId);
+            } else {
+                // If no work level is selected, clear the manager selection
+                var addBossSelect = $('#addBoss');
+                addBossSelect.empty();
+            }
+        });
+
+
+        function isValidEmail(email) {
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+        // Add a new employee
+        window.addEmployee = function () {
+            var name = $('#addName').val();
+            var position = $('#addPosition').val();
+            var date = $('#addDate').val();
+            var email = $('#addEmail').val();
+            var level_worker = $('#addBossLevel').val();
+            var boss = $('#addBoss').val();
+
+            // Checking the required fields
+            if (!name || !position || !date || !email || !level_worker) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            // Перевірка коректності email
+            if (!isValidEmail(email)) {
+                alert('Please enter a valid email address.');
+                return;
+            }
+
+            $.ajax({
+                url: '{% url "add_employee" %}',
+                type: 'POST',
+                data: {
+                    'name': name,
+                    'position': position,
+                    'date': date,
+                    'email': email,
+                    'level_worker': level_worker,
+                    'boss': boss,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function (response) {
+                    alert('New employee added!');
+                    $('#addEmployeeModal').modal('hide');
+                    loadTable(); // Оновіть таблицю
+                },
+                error: function (error) {
+                    alert('An error occurred while adding an employee.');
+                }
+            });
+        };
+
+        loadTable();
+    });
 </script>
+
 
 {% endblock content %}
