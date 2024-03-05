@@ -3,7 +3,9 @@
 {% block content %}
 
 <div class="container mt-5">
+    {% if request.user.is_authenticated %}
      <button class="btn btn-success mt-3" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">Add a new employee</button>
+    {% endif %}
     <input type="text" id="searchInput" class="form-control" placeholder="Enter a search query">
     <table id="employee-table" class="table table-striped">
         <thead>
@@ -13,7 +15,9 @@
                 <th><a href="#" data-sort="date_of_employment">Date of employment</a></th>
                 <th><a href="#" data-sort="email">Email</a></th>
                 <th><a href="#" data-sort="boss_level">Boss</a></th>
-                <th>Дія</th>
+                {% if request.user.is_authenticated %}
+                <th>Action</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -24,10 +28,12 @@
                 <td>{{ worker.date_of_employment }}</td>
                 <td>{{ worker.email }}</td>
                 <td>{{ worker.boss_level }}</td>
+                {% if request.user.is_authenticated %}
                 <td>
                     <button class="btn btn-primary" data-level-worker="{{ worker.table_name }}" data-worker-id="{{ worker.id }}" onclick="editEmployee(event)">Edit</button>
                     <button class="btn btn-danger" data-level-worker="{{ worker.table_name }}" data-worker-id="{{ worker.id }}" onclick="deleteEmployee(event)">Delete</button>
                 </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
@@ -71,7 +77,6 @@
                             </select>
                         </div>
                         <button type="button" class="btn btn-primary" onclick="saveEditedEmployee()">Save changes</button>
-                        <button type="button" class="btn btn-danger" onclick="deleteEmployee()">Delete</button>
                     </form>
                 </div>
             </div>
@@ -150,10 +155,12 @@
                               <td>${worker.date_of_employment}</td>
                               <td>${worker.email}</td>
                               <td>${boss_name}</td>
+                              {% if request.user.is_authenticated %}
                               <td>
                                   <button class="btn btn-primary" data-level-worker="${worker.table_name}" data-worker-id="${worker.id}" onclick="editEmployee(event)">Edit</button>
                                   <button class="btn btn-danger" data-level-worker="${worker.table_name}" data-worker-id="${worker.id}" onclick="deleteEmployee(event)">Delete</button>
                               </td>
+                              {% endif %}
                            </tr>`;
                 tbody.append(row);
             });
@@ -397,10 +404,3 @@ window.editEmployee = function (event) {
                 }
             });
         };
-
-        loadTable();
-    });
-</script>
-
-
-{% endblock content %}

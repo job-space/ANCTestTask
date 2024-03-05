@@ -1,13 +1,18 @@
-from .views import hierarchy_tree, employee_table, employee_table_data, CustomLoginView, \
-    get_employee_data, save_edited_employee, delete_employee, add_employee, get_boss_levels, get_bosses_based_on_level
+from .views import hierarchy_tree, employee_table, employee_table_data, get_subordinates, CustomLoginView, \
+    get_employee_data, save_edited_employee, delete_employee, add_employee, get_boss_levels, get_bosses_based_on_level, \
+    logout_user
 from django.urls import path
 
 
 urlpatterns = [
     path('hierarchy_tree', hierarchy_tree, name='hierarchy_tree'),
+    path('get_subordinates', get_subordinates, name='get_subordinates'),
     path('employee_table', employee_table, name='employee_table'),
     path('employee_table_data', employee_table_data, name='employee_table_data'),
+
     path('login/', CustomLoginView.as_view(), name='login'),
+    path('logout', logout_user, name='logout'),
+
     path('get_employee_data', get_employee_data, name='get_employee_data'),
     path('save_edited_employee', save_edited_employee, name='save_edited_employee'),
     path('delete_employee', delete_employee, name='delete_employee'),
