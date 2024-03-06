@@ -224,6 +224,51 @@ class CustomLoginView(LoginView):
         return super().form_valid(form)
 
 
+@csrf_exempt
+def get_subordinates(request):
+    employee_id = request.POST.get('post_id')
+    worker_level = request.POST.get('level')
+    showed = request.POST.get('showed')
+
+    model = apps.get_model(app_label='app', model_name=worker_level)  # worker level
+    worker = model.objects.get(id=employee_id)  # worker name
+
+    if worker_level == 'WorkerLevel1':  # The first download
+        subordinates = list(
+            getattr(worker, f"worker_level_{int(worker_level[-1]) + 1}").values('id', 'name', 'position', 'table_name'))
+    elif showed:
+        current_model = apps.get_model(app_label='app', model_name=worker_level)
+        subordinates = list(
+            current_model.objects.values('id', 'name', 'position', 'table_name'))
+    elif worker_level in ['WorkerLevel2']:
+        subordinates = get_subordinates_recursive(worker, int(worker_level[-1]) + 1)
+
+    else:
+        subordinates = []
+
+    return JsonResponse({'subordinates': subordinates})
+
+
+def get_subordinates_recursive(worker, next_level):
+    subordinates = []
+
+    if next_level > 7:  # Test to the maximum level
+        return subordinates
+
+    subordinate_manager = f'worker_level_{next_level}'
+
+    for subordinate in getattr(worker, subordinate_manager).all():
+        subordinate_data = {
+            'id': subordinate.id,
+            'name': subordinate.name,
+            'position': subordinate.position,
+            'table_name': subordinate.table_name,
+            'subordinates': get_subordinates_recursive(subordinate, next_level + 1),
+        }
+        subordinates.append(subordinate_data)
+
+    return subordinates
+
 
 def hierarchy_tree(request):
     worker = WorkerLevel1.objects.get()
