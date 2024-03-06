@@ -1,4 +1,99 @@
 {% extends 'base.html' %}
 
 {% block content %}
+    <h1>Hierarchy Tree</h1>
+
+    <!-- Hierarchy diagram -->
+    <div id="hierarchy-diagram">
+        <div class="employee-node root">
+            <p>{{ worker.name }} ({{ worker.position }})</p>
+            <form class="subordinates-form">
+                {% csrf_token %}
+                <!-- the button will be shown only for level 2 subordinates -->
+                {% if worker.table_name == 'WorkerLevel2' %}
+                    <button type="button" class="btn btn-primary" onclick="getSubordinates({{ worker.id }}, '{{ worker.table_name }}', this)">Subordinates</button>
+                {% endif %}
+            </form>
+            <ul class="subordinates-list list-group" data-employee-id="{{ worker.id }}" data-level="{{ worker.table_name }}">
+                <!-- Here, the list of subordinates will be displayed dynamically using JavaScript -->
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        function getSubordinates(employeeId, level, button) {
+            var csrftoken = $(button).siblings('form.subordinates-form').find('[name=csrfmiddlewaretoken]').val();
+            var showed = $(button).data('showed');
+
+            $.ajax({
+                type: "POST",
+                url: '{% url "get_subordinates" %}',
+                data: {
+                    post_id: employeeId,
+                    level: level,
+                    showed: showed,
+                },
+                headers: { 'X-CSRFToken': csrftoken },
+                success: function (data) {
+                    if (level === 'WorkerLevel1' || level === 'WorkerLevel2') {
+                        var container = $(button).closest('.employee-node').find('.subordinates-list');
+
+                        // Updating the parameter value showed
+                        $(button).data('showed', true);
+
+                        // Check if there are already slaves, and clear if showed=true
+                        if (showed) {
+                            container.empty();
+                        }
+
+                        updateSubordinatesList(data.subordinates, container);
+
+                        // Display the diagram after receiving subordinates
+                        drawHierarchyDiagram(data.subordinates);
+                    }
+                },
+            });
+        }
+
+        function updateSubordinatesList(subordinates, container) {
+            container.children('.subordinates-form').remove();
+
+            // Add new data
+            for (var i = 0; i < subordinates.length; i++) {
+                var listItem = $("<li class='list-group-item'>" + subordinates[i].name + " (" + subordinates[i].position + ")</li>");
+
+                // HTML form for level 2 subordinates only
+                if (subordinates[i].table_name == 'WorkerLevel2') {
+                    var formHTML = '<form class="subordinates-form">' +
+                        '{% csrf_token %}' +
+                        '<button type="button" class="btn btn-primary" onclick="getSubordinates(' + subordinates[i].id + ', \'' + subordinates[i].table_name + '\', this)">Subordinates</button>' +
+                        '</form>';
+
+                    // Add an HTML form to the element <li>
+                    listItem.append(formHTML);
+                }
+
+                container.append(listItem);
+
+                // Check if there are nested subordinates
+                if (subordinates[i].subordinates && subordinates[i].subordinates.length > 0) {
+                    var nestedList = $("<ul class='subordinates-list list-group'></ul>");
+                    listItem.append(nestedList);
+                    updateSubordinatesList(subordinates[i].subordinates, nestedList);
+                }
+            }
+        }
+
+        function drawHierarchyDiagram(data) {
+            console.log(data);
+        }
+
+        $(document).ready(function () {
+            // Function for downloading data at the initial boot
+            getSubordinates(1, 'WorkerLevel1', $(".subordinates-list"));
+        });
+    </script>
 {% endblock content %}
