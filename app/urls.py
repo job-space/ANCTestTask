@@ -5,7 +5,7 @@ from django.urls import path
 
 
 urlpatterns = [
-    path('hierarchy_tree', hierarchy_tree, name='hierarchy_tree'),
+    path('', hierarchy_tree, name='hierarchy_tree'),
     path('get_subordinates', get_subordinates, name='get_subordinates'),
     path('employee_table', employee_table, name='employee_table'),
     path('employee_table_data', employee_table_data, name='employee_table_data'),
